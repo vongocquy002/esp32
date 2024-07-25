@@ -272,47 +272,47 @@ static void example_espnow_task(void *pvParameter)
     }
 }
 
-static esp_err_t get_peer_list() {
-    // Kiểm tra xem ESPNOW đã được khởi tạo chưa
-    // Lấy số lượng peer hiện có
-    esp_now_peer_num_t peer_num;
-    esp_err_t err = esp_now_get_peer_num(&peer_num);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Lấy số lượng peer thất bại: %s", esp_err_to_name(err));
-        return err;
-    }
-    // Nếu không có peer nào thì trả về
-    if (peer_num.total_num == 0) {
-        ESP_LOGI(TAG, "Không có peer nào");
-        return ESP_OK;
-    }
-    // Khởi tạo bộ nhớ để lưu thông tin các peer
-    esp_now_peer_info_t *peer_list = malloc(sizeof(esp_now_peer_info_t) * peer_num.total_num);
-    if (peer_list == NULL) {
-        ESP_LOGE(TAG, "Không đủ bộ nhớ để lưu danh sách peer");
-        return ESP_ERR_NO_MEM;
-    }
-    // Lấy thông tin các peer
-    uint16_t num_peers = peer_num.total_num;
-    err = esp_now_fetch_peer(peer_list, &num_peers);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Lấy thông tin peer thất bại: %s", esp_err_to_name(err));
-        free(peer_list);
-        return err;
-    }
-    // Duyệt qua các peer và in ra thông tin
-    for (int i = 0; i < num_peers; i++) {
-        ESP_LOGI(TAG, "Peer %d: MAC: %02x:%02x:%02x:%02x:%02x:%02x",
-                 i,
-                 peer_list[i].peer_addr[0], peer_list[i].peer_addr[1],
-                 peer_list[i].peer_addr[2], peer_list[i].peer_addr[3],
-                 peer_list[i].peer_addr[4], peer_list[i].peer_addr[5]);
-    }
+// static esp_err_t get_peer_list() {
+//     // Kiểm tra xem ESPNOW đã được khởi tạo chưa
+//     // Lấy số lượng peer hiện có
+//     esp_now_peer_num_t peer_num;
+//     esp_err_t err = esp_now_get_peer_num(&peer_num);
+//     if (err != ESP_OK) {
+//         ESP_LOGE(TAG, "Lấy số lượng peer thất bại: %s", esp_err_to_name(err));
+//         return err;
+//     }
+//     // Nếu không có peer nào thì trả về
+//     if (peer_num.total_num == 0) {
+//         ESP_LOGI(TAG, "Không có peer nào");
+//         return ESP_OK;
+//     }
+//     // Khởi tạo bộ nhớ để lưu thông tin các peer
+//     esp_now_peer_info_t *peer_list = malloc(sizeof(esp_now_peer_info_t) * peer_num.total_num);
+//     if (peer_list == NULL) {
+//         ESP_LOGE(TAG, "Không đủ bộ nhớ để lưu danh sách peer");
+//         return ESP_ERR_NO_MEM;
+//     }
+//     // Lấy thông tin các peer
+//     uint16_t num_peers = peer_num.total_num;
+//     err = esp_now_fetch_peer(peer_list, &num_peers);
+//     if (err != ESP_OK) {
+//         ESP_LOGE(TAG, "Lấy thông tin peer thất bại: %s", esp_err_to_name(err));
+//         free(peer_list);
+//         return err;
+//     }
+//     // Duyệt qua các peer và in ra thông tin
+//     for (int i = 0; i < num_peers; i++) {
+//         ESP_LOGI(TAG, "Peer %d: MAC: %02x:%02x:%02x:%02x:%02x:%02x",
+//                  i,
+//                  peer_list[i].peer_addr[0], peer_list[i].peer_addr[1],
+//                  peer_list[i].peer_addr[2], peer_list[i].peer_addr[3],
+//                  peer_list[i].peer_addr[4], peer_list[i].peer_addr[5]);
+//     }
 
-    // Giải phóng bộ nhớ
-    free(peer_list);
-    return ESP_OK;
-}
+//     // Giải phóng bộ nhớ
+//     free(peer_list);
+//     return ESP_OK;
+// }
 
 static esp_err_t example_espnow_init(void)
 {
