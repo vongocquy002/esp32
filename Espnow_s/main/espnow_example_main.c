@@ -90,11 +90,11 @@ static void example_espnow_recv_cb(const esp_now_recv_info_t *recv_info, const u
         ESP_LOGE(TAG, "Receive cb arg error");
         return;
     }
-    recv_cb->data = malloc(len);
-    if (recv_cb->data == NULL) {
-        ESP_LOGE(TAG, "Malloc receive data fail");
-        return;
-    }
+    // recv_cb->data = malloc(len);
+    // if (recv_cb->data == NULL) {
+    //     ESP_LOGE(TAG, "Malloc receive data fail");
+    //     return;
+    // }
 
     if (IS_BROADCAST_ADDR(des_addr)) {
         /* If added a peer with encryption before, the receive packets may be
@@ -164,13 +164,21 @@ void example_espnow_data_prepare(example_espnow_send_param_t *send_param, const 
     buf->crc = 0;
     buf->magic = send_param->magic;
 
-    
+    size_t message_len = strlen(message);
+    if (message_len >= (send_param->len - sizeof(example_espnow_data_t))) {
+        ESP_LOGE(TAG, "Message is too long for the payload buffer");
+        // Cắt bớt thông điệp để phù hợp với bộ đệm payload
+        message_len = send_param->len - sizeof(example_espnow_data_t) - 1;
+    }
+    strncpy((char*)buf->payload, message, message_len); // +1 để bao gồm ký tự kết thúc chuỗi '\0'
+    buf->payload[message_len] = '\0';
+    send_param->len = sizeof(example_espnow_data_t) + message_len + 1;
     /* Fill all remaining bytes after the data with random values */
-    memcpy(buf->payload, message, strlen(message) + 1); // +1 để bao gồm ký tự kết thúc chuỗi '\0'
+    //////memcpy(buf->payload, message, strlen(message) + 1); // +1 để bao gồm ký tự kết thúc chuỗi '\0'
     //strncpy((char*)buf->payload, message, send_param->len - sizeof(example_espnow_data_t) - 1);
     //strncpy((char*)buf->payload, message, send_param->len - sizeof(example_espnow_data_t) -1 );
-    buf->payload[send_param->len - sizeof(example_espnow_data_t) - 1] = '\0';
-    send_param->len = sizeof(example_espnow_data_t) + strlen(message) + 1; // +1 để bao gồm ký tự kết thúc chuỗi '\0'
+    //////buf->payload[send_param->len - sizeof(example_espnow_data_t) - 1] = '\0';
+    //////send_param->len = sizeof(example_espnow_data_t) + strlen(message) + 1; // +1 để bao gồm ký tự kết thúc chuỗi '\0'
     //send_param->len = sizeof(example_espnow_data_t) + strlen((char*)buf->payload);
     // ESP_LOGI(TAG, "Prepare to send data from SLAVE: %s", buf->payload);
     // buf->crc = esp_crc16_le(UINT16_MAX, (uint8_t const *)buf, send_param->len);
@@ -199,7 +207,8 @@ static void example_espnow_task(void *pvParameter)
         example_espnow_deinit(send_param);
         vTaskDelete(NULL);
     }
-
+    
+    ///
     while (xQueueReceive(s_example_espnow_queue, &evt, portMAX_DELAY) == pdTRUE) {
         switch (evt.id) {
             case EXAMPLE_ESPNOW_SEND_CB:
@@ -231,12 +240,12 @@ static void example_espnow_task(void *pvParameter)
                 // memcpy(send_param->dest_mac, send_cb->mac_addr, ESP_NOW_ETH_ALEN);
                 // example_espnow_data_prepare(send_param,"heo0llo");
 
-                // /* Send the next data after the previous data is sent. */
-                // if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
-                //     ESP_LOGE(TAG, "Send error");
-                //     example_espnow_deinit(send_param);
-                //     vTaskDelete(NULL);
-                // }
+                /* Send the next data after the previous data is sent. */
+                if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
+                    ESP_LOGE(TAG, "Send error");
+                    example_espnow_deinit(send_param);
+                    vTaskDelete(NULL);
+                }
 
                 break;
             }
@@ -247,8 +256,9 @@ static void example_espnow_task(void *pvParameter)
                 ret = example_espnow_data_parse(recv_cb->data, recv_cb->data_len, &recv_state, &recv_seq, &recv_magic, &payload, &payload_len);
                 free(recv_cb->data);
                 if (ret == EXAMPLE_ESPNOW_DATA_BROADCAST) {
-                    ESP_LOGI(TAG, "Receive %dth broadcast data from: "MACSTR", len: %d", recv_seq, MAC2STR(recv_cb->mac_addr), recv_cb->data_len);
-
+                    //ESP_LOGI(TAG, "Receive %dth broadcast data from: "MACSTR", len: %d", recv_seq, MAC2STR(recv_cb->mac_addr), recv_cb->data_len);
+                    ESP_LOGE(TAG, "Received %dth broadcast data from " MACSTR ", state: %d, seq: %d, magic: %lu, message: %s",recv_seq, MAC2STR(recv_cb->mac_addr), recv_state, recv_seq, recv_magic, (char *)payload);
+                    ESP_LOGI(TAG, "DATA FULL RECV %s\n",(char *)recv_cb->data);
                     /* If MAC address does not exist in peer list, add it to peer list. */
                     if (esp_now_is_peer_exist(recv_cb->mac_addr) == false) {
                         esp_now_peer_info_t *peer = malloc(sizeof(esp_now_peer_info_t));
@@ -293,6 +303,7 @@ static void example_espnow_task(void *pvParameter)
                                 example_espnow_deinit(send_param);
                                 vTaskDelete(NULL);
                             }
+                            
                             else {
                                 send_param->broadcast = false;
                                 send_param->unicast = true;
@@ -308,7 +319,7 @@ static void example_espnow_task(void *pvParameter)
                     }
                     ESP_LOGI(TAG, "DATA FULL RECV %s",(char *)recv_cb->data);
                     /* If receive unicast ESPNOW data, also stop sending broadcast ESPNOW data. */
-                    send_param->broadcast = false;
+                    send_param->broadcast = true;
                 }
                 else {
                     ESP_LOGI(TAG, "Receive error data from: "MACSTR"", MAC2STR(recv_cb->mac_addr));
@@ -320,6 +331,8 @@ static void example_espnow_task(void *pvParameter)
                 break;
         }
     }
+    free(send_param->buffer);
+    free(send_param);
 }
 
 static esp_err_t example_espnow_init(void)
@@ -374,18 +387,21 @@ static esp_err_t example_espnow_init(void)
     send_param->magic = esp_random();
     send_param->count = CONFIG_ESPNOW_SEND_COUNT;
     send_param->delay = CONFIG_ESPNOW_SEND_DELAY;
-    send_param->len = 100;
-    send_param->buffer = malloc(send_param->len + 1);
+    //send_param->len = sizeof(example_espnow_data_t) + strlen("first broadcast 77777") + 1;
+    send_param->len = 250;
+    send_param->buffer = malloc(send_param->len);
     if (send_param->buffer == NULL) {
         ESP_LOGE(TAG, "Malloc send buffer fail");
-        free(send_param);
+        //free(send_param);
         vSemaphoreDelete(s_example_espnow_queue);
         esp_now_deinit();
         return ESP_FAIL;
     }
     memcpy(send_param->dest_mac, s_example_broadcast_mac, 6);
-    example_espnow_data_prepare(send_param, "first broadcast");
-
+    example_espnow_data_prepare(send_param, "slave_send_1_gift_to master000000uui");
+    //free(send_param->buffer);
+    //free(send_param);
+    /////////////////////////////////////////////////////////////////////////
     xTaskCreate(example_espnow_task, "example_espnow_task", 4096, send_param, 4, NULL);
 
     return ESP_OK;
@@ -393,9 +409,11 @@ static esp_err_t example_espnow_init(void)
 
 static void example_espnow_deinit(example_espnow_send_param_t *send_param)
 {
-    free(send_param->buffer);
-    free(send_param);
     vSemaphoreDelete(s_example_espnow_queue);
+    if (send_param) {
+        free(send_param->buffer);
+        free(send_param);
+    }
     esp_now_deinit();
 }
 

@@ -14,8 +14,6 @@
 -- Check for working CXX compiler: D:/ESP32/.espressif/tools/xtensa-esp-elf/esp-13.2.0_20230928/xtensa-esp-elf/bin/xtensa-esp32s3-elf-g++.exe - skipped
 -- Detecting CXX compile features
 -- Detecting CXX compile features - done
--- git rev-parse returned 'fatal: not a git repository (or any of the parent directories): .git'
--- Could not use 'git describe' to determine PROJECT_VER.
 -- Building ESP-IDF components for target esp32s3
 -- Project sdkconfig file D:/ESP32/myProject/ESPNOW1/Espnow_s/sdkconfig
 -- Compiler supported targets: xtensa-esp-elf
@@ -33,7 +31,7 @@
 -- Found Threads: TRUE  
 -- Performing Test C_COMPILER_SUPPORTS_WFORMAT_SIGNEDNESS
 -- Performing Test C_COMPILER_SUPPORTS_WFORMAT_SIGNEDNESS - Success
--- App "Espnow_m" version: 1
+-- App "Espnow_m" version: b4ba53a-dirty
 -- Adding linker script D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/esp_system/ld/memory.ld
 -- Adding linker script D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/esp_system/ld/sections.ld.in
 -- Adding linker script D:/ESP32/esp-idf/v5.2.2/esp-idf/components/esp_rom/esp32s3/ld/esp32s3.rom.ld
