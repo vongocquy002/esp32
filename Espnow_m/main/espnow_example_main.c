@@ -1,16 +1,16 @@
-/* ESPNOW Example
+// /* ESPNOW Example
 
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
+//    This example code is in the Public Domain (or CC0 licensed, at your option.)
 
-   Unless required by applicable law or agreed to in writing, this
-    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
-/*
-   This example shows how to use ESPNOW.
-   Prepare two device, one for sending ESPNOW data and another for receiving
-   ESPNOW data.
-*/
+//    Unless required by applicable law or agreed to in writing, this
+//     software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+//    CONDITIONS OF ANY KIND, either express or implied.
+// */
+// /*
+//    This example shows how to use ESPNOW.
+//    Prepare two device, one for sending ESPNOW data and another for receiving
+//    ESPNOW data.
+// */
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
@@ -90,16 +90,16 @@ static void example_espnow_recv_cb(const esp_now_recv_info_t *recv_info, const u
         ESP_LOGE(TAG, "Receive cb arg error");
         return;
     }
-    recv_cb->data = malloc(len);
-    if (recv_cb->data == NULL) {
-        ESP_LOGE(TAG, "Malloc receive data fail");
-        return;
-    }
-    // if (IS_BROADCAST_ADDR(des_addr)) {
-    //     ESP_LOGD(TAG, "Receive broadcast ESPNOW data");
-    // } else {
-    //     ESP_LOGD(TAG, "Receive unicast ESPNOW data");
+    // recv_cb->data = malloc(len);
+    // if (recv_cb->data == NULL) {
+    //     ESP_LOGE(TAG, "Malloc receive data fail");
+    //     return;
     // }
+    if (IS_BROADCAST_ADDR(des_addr)) {
+        ESP_LOGD(TAG, "Receive broadcast ESPNOW data");
+    } else {
+        ESP_LOGD(TAG, "Receive unicast ESPNOW data");
+    }
     evt.id = EXAMPLE_ESPNOW_RECV_CB;
     memcpy(recv_cb->mac_addr, mac_addr, ESP_NOW_ETH_ALEN);
     recv_cb->data = malloc(len);
@@ -162,16 +162,29 @@ void example_espnow_data_prepare(example_espnow_send_param_t *send_param, const 
     buf->magic = send_param->magic;
     /* Fill all remaining bytes after the data with random values */
     //esp_fill_random(buf->payload, send_param->len - sizeof(example_espnow_data_t));
+    size_t message_len = strlen(message);
+    if (message_len >= (send_param->len - sizeof(example_espnow_data_t))) {
+        ESP_LOGE(TAG, "Message is too long for the payload buffer");
+        // Cắt bớt thông điệp để phù hợp với bộ đệm payload
+        message_len = send_param->len - sizeof(example_espnow_data_t) - 1;
+    }
+    strncpy((char*)buf->payload, message, message_len); // +1 để bao gồm ký tự kết thúc chuỗi '\0'
+    buf->payload[message_len] = '\0';
+    send_param->len = sizeof(example_espnow_data_t) + message_len + 1;
+    //size_t payload_len = send_param->len - sizeof(example_espnow_data_t);
+    //strncpy((char*)buf->payload, message, message_len + 1); // +1 để bao gồm ký tự kết thúc chuỗi '\0'
+    //send_param->len = sizeof(example_espnow_data_t) + message_len + 1;
     
-    memcpy(buf->payload, message, strlen(message) + 1); // +1 để bao gồm ký tự kết thúc chuỗi '\0'
+    //memcpy(buf->payload, message, strlen(message)); // +1 để bao gồm ký tự kết thúc chuỗi '\0'
+    //buf->payload[message_len] = '\0';
     // send_param->len = sizeof(example_espnow_data_t) + strlen(message) + 1; // +1 để bao gồm ký tự kết thúc chuỗi '\0'
     //strncpy((char*)buf->payload, message, send_param->len - sizeof(example_espnow_data_t) - 1);
-    buf->payload[send_param->len - sizeof(example_espnow_data_t) - 1] = '\0';
-    send_param->len = sizeof(example_espnow_data_t) + strlen((char*)buf->payload) + 1;
+    //buf->payload[send_param->len - sizeof(example_espnow_data_t) - 1] = '\0';
+    //send_param->len = sizeof(example_espnow_data_t) + message_len + 1;
 
     //size_t message_len = strlen(message);
     // strncpy((char*)buf->payload, message, send_param->len - sizeof(example_espnow_data_t));
-    // send_param->len = sizeof(example_espnow_data_t) + message_len;
+    //send_param->len = sizeof(example_espnow_data_t) + message_len + 1;
 
     ESP_LOGI(TAG, "Prepare to send data from SLAVE: %s", buf->payload);
     buf->crc = esp_crc16_le(UINT16_MAX, (uint8_t const *)buf, send_param->len);
@@ -186,7 +199,7 @@ static void example_espnow_task(void *pvParameter)
     uint8_t *payload = NULL;
     uint16_t payload_len = 0;
     int ret;
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    //vTaskDelay(5000 / portTICK_PERIOD_MS);
     while (xQueueReceive(s_example_espnow_queue, &evt, portMAX_DELAY) == pdTRUE) {
         switch (evt.id) {
             case EXAMPLE_ESPNOW_RECV_CB:
@@ -195,11 +208,8 @@ static void example_espnow_task(void *pvParameter)
                 ret = example_espnow_data_parse(recv_cb->data, recv_cb->data_len, &recv_state, &recv_seq, &recv_magic, &payload, &payload_len);
                 free(recv_cb->data);
                 if (ret == EXAMPLE_ESPNOW_DATA_BROADCAST) {
-                    ESP_LOGE(TAG, "Received %dth broadcast data from " MACSTR ", state: %d, seq: %d, magic: %lu, message: %s",recv_seq, MAC2STR(recv_cb->mac_addr), recv_state, recv_seq, recv_magic, (char *)payload);
-                    if (payload != NULL) {
-                        //ESP_LOGI(TAG, "Recv from MaSter Payload: %.*s", payload_len, payload);
-                    }
-                    ESP_LOGI(TAG, "DATA FULL RECV %s",(char *)recv_cb->data);
+                    ESP_LOGE(TAG, "Received %dth q broadcast data from " MACSTR ", state: %d, seq: %d, magic: %lu, message: %s",recv_seq, MAC2STR(recv_cb->mac_addr), recv_state, recv_seq, recv_magic, (char *)payload);
+                    ESP_LOGI(TAG, "DATA FULL RECV BROADCAST: %s",(char *)recv_cb->data);
                     /* If MAC address does not exist in peer list, add it to peer list. */
                     if (esp_now_is_peer_exist(recv_cb->mac_addr) == false) {
                         esp_now_peer_info_t *peer = malloc(sizeof(esp_now_peer_info_t));
@@ -218,9 +228,10 @@ static void example_espnow_task(void *pvParameter)
                     }
                     ///SEND UNICAST WHEN RECV BROADCAST FROM MASTER///
                     /* Prepare to send unicast ESPNOW data. */
-                    example_espnow_send_param_t *send_param = malloc(sizeof(example_espnow_send_param_t));
+                    //-----------------------------------------------------------------------------
+                    example_espnow_send_param_t *send_param;
+                    send_param = malloc(sizeof(example_espnow_send_param_t));
                     //example_espnow_send_param_t *send_param = (example_espnow_send_param_t *)pvParameter;
-
                     if (send_param == NULL) {
                         ESP_LOGE(TAG, "Malloc send parameter fail");
                         example_espnow_deinit(NULL);
@@ -231,8 +242,9 @@ static void example_espnow_task(void *pvParameter)
                     send_param->broadcast = false;
                     send_param->state = 0;
                     send_param->magic = recv_magic;
-                    send_param->len = CONFIG_ESPNOW_SEND_LEN;
-                    send_param->buffer = malloc(CONFIG_ESPNOW_SEND_LEN);
+                    //const char* message = "helloslave_for_____m_master";
+                    send_param->len = 250;
+                    send_param->buffer = malloc(send_param->len);
                     if (send_param->buffer == NULL) {
                         ESP_LOGE(TAG, "Malloc send buffer fail");
                         free(send_param);
@@ -241,7 +253,7 @@ static void example_espnow_task(void *pvParameter)
                     }
                     //copy dia chi mac dich tu recv cb vao send param de gui
                     memcpy(send_param->dest_mac, recv_cb->mac_addr, ESP_NOW_ETH_ALEN);
-                    example_espnow_data_prepare(send_param, "hello_master");
+                    example_espnow_data_prepare(send_param, "helllllo____888___9o0quy");
                     
                     ESP_LOGI(TAG, "Send data w to "MACSTR"", MAC2STR(send_param->dest_mac));
                     ESP_LOGI(TAG, "////////////////////////////////////\n");
@@ -252,6 +264,7 @@ static void example_espnow_task(void *pvParameter)
                     }
                     free(send_param->buffer);
                     free(send_param);
+                    //---------------------------------------------------------
                 } else if (ret == EXAMPLE_ESPNOW_DATA_UNICAST) {
                     ESP_LOGI(TAG, "Receive %dth unicast data from: "MACSTR", len: %d", recv_seq, MAC2STR(recv_cb->mac_addr), recv_cb->data_len);
                 } else {
@@ -272,47 +285,6 @@ static void example_espnow_task(void *pvParameter)
     }
 }
 
-// static esp_err_t get_peer_list() {
-//     // Kiểm tra xem ESPNOW đã được khởi tạo chưa
-//     // Lấy số lượng peer hiện có
-//     esp_now_peer_num_t peer_num;
-//     esp_err_t err = esp_now_get_peer_num(&peer_num);
-//     if (err != ESP_OK) {
-//         ESP_LOGE(TAG, "Lấy số lượng peer thất bại: %s", esp_err_to_name(err));
-//         return err;
-//     }
-//     // Nếu không có peer nào thì trả về
-//     if (peer_num.total_num == 0) {
-//         ESP_LOGI(TAG, "Không có peer nào");
-//         return ESP_OK;
-//     }
-//     // Khởi tạo bộ nhớ để lưu thông tin các peer
-//     esp_now_peer_info_t *peer_list = malloc(sizeof(esp_now_peer_info_t) * peer_num.total_num);
-//     if (peer_list == NULL) {
-//         ESP_LOGE(TAG, "Không đủ bộ nhớ để lưu danh sách peer");
-//         return ESP_ERR_NO_MEM;
-//     }
-//     // Lấy thông tin các peer
-//     uint16_t num_peers = peer_num.total_num;
-//     err = esp_now_fetch_peer(peer_list, &num_peers);
-//     if (err != ESP_OK) {
-//         ESP_LOGE(TAG, "Lấy thông tin peer thất bại: %s", esp_err_to_name(err));
-//         free(peer_list);
-//         return err;
-//     }
-//     // Duyệt qua các peer và in ra thông tin
-//     for (int i = 0; i < num_peers; i++) {
-//         ESP_LOGI(TAG, "Peer %d: MAC: %02x:%02x:%02x:%02x:%02x:%02x",
-//                  i,
-//                  peer_list[i].peer_addr[0], peer_list[i].peer_addr[1],
-//                  peer_list[i].peer_addr[2], peer_list[i].peer_addr[3],
-//                  peer_list[i].peer_addr[4], peer_list[i].peer_addr[5]);
-//     }
-
-//     // Giải phóng bộ nhớ
-//     free(peer_list);
-//     return ESP_OK;
-// }
 
 static esp_err_t example_espnow_init(void)
 {
@@ -369,9 +341,7 @@ void app_main(void)
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-
     example_wifi_init();
     ESP_ERROR_CHECK(example_espnow_init());
-    //get_peer_list();
 
 }

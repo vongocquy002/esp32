@@ -14,5 +14,9 @@
     "idf.portWin": "COM21",
     "idf.pythonBinPathWin": "D:\\ESP32\\.espressif\\python_env\\idf5.2_py3.11_env\\Scripts\\python.exe",
     "idf.toolsPathWin": "D:\\ESP32\\.espressif",
-    "idf.flashType": "UART"
+    "idf.flashType": "UART",
+    "files.associations": {
+        "system_error": "c",
+        "esp_now.h": "c"
+    }
 }
