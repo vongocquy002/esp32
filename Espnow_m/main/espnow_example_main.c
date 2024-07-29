@@ -191,7 +191,7 @@ static void example_espnow_task(void *pvParameter)
                 free(recv_cb->data);
                 if (ret == EXAMPLE_ESPNOW_DATA_BROADCAST) {
                     ESP_LOGE(TAG, "Received %dth q broadcast data from " MACSTR ", state: %d, seq: %d, magic: %lu, message: %s",recv_seq, MAC2STR(recv_cb->mac_addr), recv_state, recv_seq, recv_magic, (char *)payload);
-                    ESP_LOGI(TAG, "DATA FULL RECV BROADCAST: %s",(char *)recv_cb->data);
+                    ESP_LOGI(TAG, "DATA FULL RECV BROADCAST: %s\n",(char *)recv_cb->data);
                     /* If MAC address does not exist in peer list, add it to peer list. */
                     if (esp_now_is_peer_exist(recv_cb->mac_addr) == false) {
                         esp_now_peer_info_t *peer = malloc(sizeof(esp_now_peer_info_t));
@@ -222,7 +222,7 @@ static void example_espnow_task(void *pvParameter)
                     memset(send_param, 0, sizeof(example_espnow_send_param_t));
                     send_param->unicast = true;
                     send_param->broadcast = false;
-                    send_param->state = 0;
+                    send_param->state = recv_state;
                     send_param->magic = recv_magic;
                     //const char* message = "helloslave_for_____m_master";
                     send_param->len = 250;
@@ -235,7 +235,7 @@ static void example_espnow_task(void *pvParameter)
                     }
                     //copy dia chi mac dich tu recv cb vao send param de gui
                     memcpy(send_param->dest_mac, recv_cb->mac_addr, ESP_NOW_ETH_ALEN);
-                    example_espnow_data_prepare(send_param, "helllllo____888___9o0quy");
+                    example_espnow_data_prepare(send_param, "AGREE TO CONNECT___");
                     
                     ESP_LOGI(TAG, "Send data w to "MACSTR"", MAC2STR(send_param->dest_mac));
                     ESP_LOGI(TAG, "////////////////////////////////////\n");
@@ -247,9 +247,11 @@ static void example_espnow_task(void *pvParameter)
                     free(send_param->buffer);
                     free(send_param);
                     //---------------------------------------------------------
-                } else if (ret == EXAMPLE_ESPNOW_DATA_UNICAST) {
-                    ESP_LOGI(TAG, "Receive %dth unicast data from: "MACSTR", len: %d", recv_seq, MAC2STR(recv_cb->mac_addr), recv_cb->data_len);
-                } else {
+                } 
+                else if (ret == EXAMPLE_ESPNOW_DATA_UNICAST) {
+                    ESP_LOGE(TAG, "Received %dth unicast data from " MACSTR ", state: %d, seq: %d, magic: %lu, message: %s",recv_seq, MAC2STR(recv_cb->mac_addr), recv_state, recv_seq, recv_magic, (char *)payload);                
+                }
+                else {
                     ESP_LOGI(TAG, "Receive error data from: "MACSTR", len: %d", MAC2STR(recv_cb->mac_addr), recv_cb->data_len);
                 }
                 break;
