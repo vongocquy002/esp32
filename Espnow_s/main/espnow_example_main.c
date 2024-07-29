@@ -1,5 +1,5 @@
 /* ESPNOW Example
-
+   Vongocquy002
    This example code is in the Public Domain (or CC0 licensed, at your option.)
 
    Unless required by applicable law or agreed to in writing, this
@@ -311,6 +311,7 @@ static void example_espnow_task(void *pvParameter)
                     /* NEU MUON TIEP TUC BROADCAST THI TRUE, NEU FALSE THI CHI 1 LAN DUY NHAT */
                     send_param->broadcast = false; //QUAN TRONG
 //////////      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                    if(recv_state ==0){
                     if (esp_now_is_peer_exist(recv_cb->mac_addr) == false) {
                         esp_now_peer_info_t *peer = malloc(sizeof(esp_now_peer_info_t));
                         if (peer == NULL) {
@@ -360,7 +361,7 @@ static void example_espnow_task(void *pvParameter)
                         vTaskDelete(NULL);
                     }
                     free(send_param->buffer);
-                    free(send_param);
+                    free(send_param); }
                 }
                 else {
                     ESP_LOGI(TAG, "Receive error data from: "MACSTR"", MAC2STR(recv_cb->mac_addr));
