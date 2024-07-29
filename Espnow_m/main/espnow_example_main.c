@@ -120,9 +120,7 @@ static void example_espnow_recv_cb(const esp_now_recv_info_t *recv_info, const u
     ////RSSI
     int8_t rssi = recv_info->rx_ctrl->rssi;
     ESP_LOGI(TAG, "RSSI: %d", rssi);
-    /////
 }
-
 /* Parse received ESPNOW data. */
 int example_espnow_data_parse(uint8_t *data, uint16_t data_len, uint8_t *state, uint16_t *seq, uint32_t *magic, uint8_t **payload, uint16_t *payload_len)
 {
@@ -148,7 +146,6 @@ int example_espnow_data_parse(uint8_t *data, uint16_t data_len, uint8_t *state, 
     }
     return -1;
 }
-
 /* Prepare ESPNOW data to be sent. */
 void example_espnow_data_prepare(example_espnow_send_param_t *send_param, const char* message)
 {
@@ -160,8 +157,7 @@ void example_espnow_data_prepare(example_espnow_send_param_t *send_param, const 
     buf->seq_num = s_example_espnow_seq[buf->type]++;
     buf->crc = 0;
     buf->magic = send_param->magic;
-    /* Fill all remaining bytes after the data with random values */
-    //esp_fill_random(buf->payload, send_param->len - sizeof(example_espnow_data_t));
+    
     size_t message_len = strlen(message);
     if (message_len >= (send_param->len - sizeof(example_espnow_data_t))) {
         ESP_LOGE(TAG, "Message is too long for the payload buffer");
@@ -171,21 +167,7 @@ void example_espnow_data_prepare(example_espnow_send_param_t *send_param, const 
     strncpy((char*)buf->payload, message, message_len); // +1 để bao gồm ký tự kết thúc chuỗi '\0'
     buf->payload[message_len] = '\0';
     send_param->len = sizeof(example_espnow_data_t) + message_len + 1;
-    //size_t payload_len = send_param->len - sizeof(example_espnow_data_t);
-    //strncpy((char*)buf->payload, message, message_len + 1); // +1 để bao gồm ký tự kết thúc chuỗi '\0'
-    //send_param->len = sizeof(example_espnow_data_t) + message_len + 1;
     
-    //memcpy(buf->payload, message, strlen(message)); // +1 để bao gồm ký tự kết thúc chuỗi '\0'
-    //buf->payload[message_len] = '\0';
-    // send_param->len = sizeof(example_espnow_data_t) + strlen(message) + 1; // +1 để bao gồm ký tự kết thúc chuỗi '\0'
-    //strncpy((char*)buf->payload, message, send_param->len - sizeof(example_espnow_data_t) - 1);
-    //buf->payload[send_param->len - sizeof(example_espnow_data_t) - 1] = '\0';
-    //send_param->len = sizeof(example_espnow_data_t) + message_len + 1;
-
-    //size_t message_len = strlen(message);
-    // strncpy((char*)buf->payload, message, send_param->len - sizeof(example_espnow_data_t));
-    //send_param->len = sizeof(example_espnow_data_t) + message_len + 1;
-
     ESP_LOGI(TAG, "Prepare to send data from SLAVE: %s", buf->payload);
     buf->crc = esp_crc16_le(UINT16_MAX, (uint8_t const *)buf, send_param->len);
 }
