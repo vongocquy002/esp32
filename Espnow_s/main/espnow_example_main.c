@@ -173,15 +173,7 @@ void example_espnow_data_prepare(example_espnow_send_param_t *send_param, const 
     strncpy((char*)buf->payload, message, message_len); // +1 để bao gồm ký tự kết thúc chuỗi '\0'
     buf->payload[message_len] = '\0';
     send_param->len = sizeof(example_espnow_data_t) + message_len + 1;
-    /* Fill all remaining bytes after the data with random values */
-    //////memcpy(buf->payload, message, strlen(message) + 1); // +1 để bao gồm ký tự kết thúc chuỗi '\0'
-    //strncpy((char*)buf->payload, message, send_param->len - sizeof(example_espnow_data_t) - 1);
-    //strncpy((char*)buf->payload, message, send_param->len - sizeof(example_espnow_data_t) -1 );
-    //////buf->payload[send_param->len - sizeof(example_espnow_data_t) - 1] = '\0';
-    //////send_param->len = sizeof(example_espnow_data_t) + strlen(message) + 1; // +1 để bao gồm ký tự kết thúc chuỗi '\0'
-    //send_param->len = sizeof(example_espnow_data_t) + strlen((char*)buf->payload);
-    // ESP_LOGI(TAG, "Prepare to send data from SLAVE: %s", buf->payload);
-    // buf->crc = esp_crc16_le(UINT16_MAX, (uint8_t const *)buf, send_param->len);
+   
     ESP_LOGI(TAG, "Prepare to send data to MASTER: %s", buf->payload);
     buf->crc = esp_crc16_le(UINT16_MAX, (uint8_t const *)buf, send_param->len);
 }
@@ -198,8 +190,8 @@ static void example_espnow_task(void *pvParameter)
     int ret;
 
     // vTaskDelay(5000 / portTICK_PERIOD_MS);
-    // ESP_LOGI(TAG, "Start sending broadcast data");
 
+    ESP_LOGI(TAG, "Start sending broadcast data");
     /* Start sending broadcast ESPNOW data. */
     example_espnow_send_param_t *send_param = (example_espnow_send_param_t *)pvParameter;
     if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
@@ -238,14 +230,14 @@ static void example_espnow_task(void *pvParameter)
         ///////////////////////////////////GUI lan nua t
                 // ESP_LOGI(TAG, "send data to "MACSTR"", MAC2STR(send_cb->mac_addr));
                 // memcpy(send_param->dest_mac, send_cb->mac_addr, ESP_NOW_ETH_ALEN);
+        //GUI LAN 2 O DAY
                 // example_espnow_data_prepare(send_param,"heo0llo");
-
-                /* Send the next data after the previous data is sent. */
-                if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
-                    ESP_LOGE(TAG, "Send error");
-                    example_espnow_deinit(send_param);
-                    vTaskDelete(NULL);
-                }
+                // /* GUI LAN 2 */
+                // if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
+                //     ESP_LOGE(TAG, "Send error");
+                //     example_espnow_deinit(send_param);
+                //     vTaskDelete(NULL);
+                // }
 
                 break;
             }
@@ -318,8 +310,8 @@ static void example_espnow_task(void *pvParameter)
                         //ESP_LOGI(TAG, "Recv from MaSter Payload: %.*s", payload_len, payload);
                     }
                     ESP_LOGI(TAG, "DATA FULL RECV %s",(char *)recv_cb->data);
-                    /* If receive unicast ESPNOW data, also stop sending broadcast ESPNOW data. */
-                    send_param->broadcast = true;
+                    /* NEU MUON TIEP TUC BROADCAST THI TRUE, NEU FALSE THI CHI 1 LAN DUY NHAT */
+                    send_param->broadcast = false; //QUAN TRONG 
                 }
                 else {
                     ESP_LOGI(TAG, "Receive error data from: "MACSTR"", MAC2STR(recv_cb->mac_addr));
