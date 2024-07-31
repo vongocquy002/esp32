@@ -18,7 +18,6 @@
 /* List of deprecated options */
 /* Default entry point */
 ENTRY(call_start_cpu0);
-_diram_i_start = 0x40378000;
 SECTIONS
 {
   /**
@@ -32,8 +31,6 @@ SECTIONS
   {
     . = ALIGN(4);
     _rtc_fast_start = ABSOLUTE(.);
-    _rtc_text_start = ABSOLUTE(.);
-    *(.rtc.entry.text)
     mapping[rtc_text]
     *rtc_wake_stub*.*(.literal .text .literal.* .text.*)
     *(.rtc_text_end_test)
@@ -70,23 +67,19 @@ SECTIONS
 
    * RTC_DATA_ATTR, RTC_RODATA_ATTR attributes.
 
-   * The memory location of the data is dependent on
-
-   * CONFIG_ESP32S3_RTCDATA_IN_FAST_MEM option.
-
    */
   .rtc.data :
   {
     _rtc_data_start = ABSOLUTE(.);
     mapping[rtc_data]
-    *rtc_wake_stub*.*(.data .rodata .data.* .rodata.*)
+    *rtc_wake_stub*.*(.data .rodata .data.* .rodata.* .srodata.*)
     _rtc_data_end = ABSOLUTE(.);
   } > rtc_data_location
   /* RTC bss, from any source file named rtc_wake_stub*.c */
   .rtc.bss (NOLOAD) :
   {
     _rtc_bss_start = ABSOLUTE(.);
-    *rtc_wake_stub*.*(.bss .bss.*)
+    *rtc_wake_stub*.*(.bss .bss.* .sbss .sbss.*)
     *rtc_wake_stub*.*(COMMON)
     mapping[rtc_bss]
     _rtc_bss_end = ABSOLUTE(.);
@@ -100,8 +93,6 @@ SECTIONS
    * User data marked with RTC_NOINIT_ATTR will be placed
 
    * into this section. See the file "esp_attr.h" for more information.
-
-	 * The memory location of the data is dependent on CONFIG_ESP32S3_RTCDATA_IN_FAST_MEM option.
 
    */
   .rtc_noinit (NOLOAD):
@@ -163,45 +154,15 @@ SECTIONS
           "RTC_SLOW segment data does not fit.")
   ASSERT((_rtc_fast_length <= LENGTH(rtc_data_seg)),
           "RTC_FAST segment data does not fit.")
-  /* Send .iram0 code to iram */
-  .iram0.vectors :
-  {
-    _iram_start = ABSOLUTE(.);
-    /* Vectors go to IRAM */
-    _vector_table = ABSOLUTE(.);
-    . = 0x0;
-    KEEP(*(.WindowVectors.text));
-    . = 0x180;
-    KEEP(*(.Level2InterruptVector.text));
-    . = 0x1c0;
-    KEEP(*(.Level3InterruptVector.text));
-    . = 0x200;
-    KEEP(*(.Level4InterruptVector.text));
-    . = 0x240;
-    KEEP(*(.Level5InterruptVector.text));
-    . = 0x280;
-    KEEP(*(.DebugExceptionVector.text));
-    . = 0x2c0;
-    KEEP(*(.NMIExceptionVector.text));
-    . = 0x300;
-    KEEP(*(.KernelExceptionVector.text));
-    . = 0x340;
-    KEEP(*(.UserExceptionVector.text));
-    . = 0x3C0;
-    KEEP(*(.DoubleExceptionVector.text));
-    . = 0x400;
-    _invalid_pc_placeholder = ABSOLUTE(.);
-    *(.*Vector.literal)
-    *(.UserEnter.literal);
-    *(.UserEnter.text);
-    . = ALIGN (16);
-    *(.entry.text)
-    *(.init.literal)
-    *(.init)
-    _init_end = ABSOLUTE(.);
-  } > iram0_0_seg
   .iram0.text :
   {
+    _iram_start = ABSOLUTE(.);
+    /* Vectors go to start of IRAM */
+    ASSERT(ABSOLUTE(.) % 0x100 == 0, "vector address must be 256 byte aligned");
+    KEEP(*(.exception_vectors_table.text));
+    KEEP(*(.exception_vectors.text));
+    . = ALIGN(4);
+    _invalid_pc_placeholder = ABSOLUTE(.);
     /* Code marked as running out of IRAM */
     _iram_text_start = ABSOLUTE(.);
     mapping[iram0_text]
@@ -215,13 +176,14 @@ SECTIONS
    */
   .dram0.dummy (NOLOAD):
   {
-    . = ORIGIN(dram0_0_seg) + MAX(_iram_end - _diram_i_start, 0);
+    . = ORIGIN(dram0_0_seg) + _iram_end - _iram_start;
   } > dram0_0_seg
   .dram0.data :
   {
     _data_start = ABSOLUTE(.);
     *(.gnu.linkonce.d.*)
     *(.data1)
+    __global_pointer$ = . + 0x800;
     *(.sdata)
     *(.sdata.*)
     *(.gnu.linkonce.s.*)
@@ -315,7 +277,7 @@ SECTIONS
    */
   .flash_rodata_dummy (NOLOAD):
   {
-    _flash_rodata_dummy_start = ABSOLUTE(.);
+    _flash_rodata_dummy_start = .;
     /* Start at the same alignment constraint than .flash.text */
     . = ALIGN(ALIGNOF(.flash.text));
     /* Create an empty gap as big as .flash.text section */
@@ -333,7 +295,7 @@ SECTIONS
     *(.rodata_custom_desc .rodata_custom_desc.*) /* Should be the second. Custom app version info. DO NOT PUT ANYTHING BEFORE IT! */
     /* Create an empty gap within this section. Thanks to this, the end of this
 
-     * section will match .flah.rodata's begin address. Thus, both sections
+     * section will match .flash.rodata's begin address. Thus, both sections
 
      * will be merged when creating the final bin image. */
     . = ALIGN(ALIGNOF(.flash.rodata));
@@ -350,11 +312,31 @@ SECTIONS
     *(.gcc_except_table .gcc_except_table.*)
     *(.gnu.linkonce.e.*)
     *(.gnu.version_r)
-    . = (. + 3) & ~ 3;
-    /* C++ constructor and destructor tables */
-    /* Don't include anything from crtbegin.o or crtend.o, as IDF doesn't use toolchain crt */
+    . = (. + 7) & ~ 3;
+    /*
+
+     * C++ constructor and destructor tables
+
+     * Don't include anything from crtbegin.o or crtend.o, as IDF doesn't use toolchain crt.
+
+     *
+
+     * RISC-V gcc is configured with --enable-initfini-array so it emits an .init_array section instead.
+
+     * But the init_priority sections will be sorted for iteration in ascending order during startup.
+
+     * The rest of the init_array sections is sorted for iteration in descending order during startup, however.
+
+     * Hence a different section is generated for the init_priority functions which is iterated in
+
+     * ascending order during startup. The corresponding code can be found in startup.c.
+
+     */
+    __init_priority_array_start = ABSOLUTE(.);
+    KEEP (*(EXCLUDE_FILE (*crtend.* *crtbegin.*) .init_array.*))
+    __init_priority_array_end = ABSOLUTE(.);
     __init_array_start = ABSOLUTE(.);
-    KEEP (*(EXCLUDE_FILE (*crtend.* *crtbegin.*) .ctors SORT(.ctors.*)))
+    KEEP (*(EXCLUDE_FILE (*crtend.* *crtbegin.*) .init_array))
     __init_array_end = ABSOLUTE(.);
     KEEP (*crtbegin.*(.dtors))
     KEEP (*(EXCLUDE_FILE (*crtend.*) .dtors))
@@ -390,9 +372,7 @@ SECTIONS
     *(.tbss)
     *(.tbss.*)
     _thread_local_end = ABSOLUTE(.);
-    . = ALIGN(4);
   } > default_rodata_seg
-  _flash_rodata_align = ALIGNOF(.flash.rodata);
   /*
 
     This section is a place where we dump all the rodata which aren't used at runtime,
@@ -413,84 +393,38 @@ SECTIONS
     . = ALIGN (4);
     mapping[rodata_noload]
   } > default_rodata_seg
-  /**
-
-   * This section is required to skip flash rodata sections, because `extern_ram_seg`
-
-   * and `drom0_0_seg` are on the same bus
-
-   */
-  .ext_ram.dummy (NOLOAD):
-  {
-    . = ORIGIN(extern_ram_seg) + (_rodata_reserved_end - _flash_rodata_dummy_start);
-    . = ALIGN (0x10000);
-  } > extern_ram_seg
-  /* This section holds .ext_ram.bss data, and will be put in PSRAM */
-  .ext_ram.bss (NOLOAD) :
-  {
-    _ext_ram_bss_start = ABSOLUTE(.);
-    mapping[extern_ram]
-    . = ALIGN(4);
-    _ext_ram_bss_end = ABSOLUTE(.);
-  } > extern_ram_seg
   /* Marks the end of IRAM code segment */
   .iram0.text_end (NOLOAD) :
   {
-    /* iram_end_test section exists for use by memprot unit tests only */
+    /* iram_end_test section exists for use by Memprot unit tests only */
     *(.iram_end_test)
-    /* ESP32-S3 memprot requires 16B padding for possible CPU prefetch and 256B alignment for PMS split lines */
+    /* ESP32-C3 memprot requires 16B padding for possible CPU prefetch and 512B alignment for PMS split lines */
     . += _esp_memprot_prefetch_pad_size;
     . = ALIGN(_esp_memprot_align_size);
     _iram_text_end = ABSOLUTE(.);
   } > iram0_0_seg
   .iram0.data :
   {
-    . = ALIGN(4);
+    . = ALIGN(16);
     _iram_data_start = ABSOLUTE(.);
     mapping[iram0_data]
     _iram_data_end = ABSOLUTE(.);
   } > iram0_0_seg
   .iram0.bss (NOLOAD) :
   {
-    . = ALIGN(4);
+    . = ALIGN(16);
     _iram_bss_start = ABSOLUTE(.);
     mapping[iram0_bss]
     _iram_bss_end = ABSOLUTE(.);
-    . = ALIGN(4);
+    . = ALIGN(16);
     _iram_end = ABSOLUTE(.);
-   } > iram0_0_seg
+  } > iram0_0_seg
   /* Marks the end of data, bss and possibly rodata  */
   .dram0.heap_start (NOLOAD) :
   {
-    . = ALIGN (8);
-    /* Lowest possible start address for the heap */
-    _heap_low_start = ABSOLUTE(.);
+    . = ALIGN (16);
+    _heap_start = ABSOLUTE(.);
   } > dram0_0_seg
-  /** This section will be used by the debugger and disassembler to get more information
-
-    * about raw data present in the code.
-
-    * Indeed, it may be required to add some padding at some points in the code
-
-    * in order to align a branch/jump destination on a particular bound.
-
-    * Padding these instructions will generate null bytes that shall be
-
-    * interpreted as data, and not code by the debugger or disassembler.
-
-    * This section will only be present in the ELF file, not in the final binary
-
-    * For more details, check GCC-212
-
-    */
-  .xt.prop 0 :
-  {
-    KEEP (*(.xt.prop .xt.prop.* .gnu.linkonce.prop.*))
-  }
-  .xt.lit 0 :
-  {
-    KEEP (*(.xt.lit .xt.lit.* .gnu.linkonce.p.*))
-  }
   /DISCARD/ :
   {
    *(.eh_frame_hdr)
@@ -499,5 +433,5 @@ SECTIONS
 }
 ASSERT(((_iram_end - ORIGIN(iram0_0_seg)) <= LENGTH(iram0_0_seg)),
           "IRAM0 segment data does not fit.")
-ASSERT(((_heap_low_start - ORIGIN(dram0_0_seg)) <= LENGTH(dram0_0_seg)),
+ASSERT(((_heap_start - ORIGIN(dram0_0_seg)) <= LENGTH(dram0_0_seg)),
           "DRAM segment data does not fit.")

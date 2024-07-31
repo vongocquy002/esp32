@@ -17,6 +17,9 @@
     "idf.flashType": "UART",
     "files.associations": {
         "system_error": "c",
-        "esp_now.h": "c"
+        "esp_now.h": "c",
+        "future": "c",
+        "istream": "c",
+        "ostream": "c"
     }
 }

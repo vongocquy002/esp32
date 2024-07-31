@@ -1,4 +1,4 @@
-D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/xtensa/libxtensa.a
+D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/riscv/libriscv.a
 D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/esp_ringbuf/libesp_ringbuf.a
 D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/efuse/libefuse.a
 D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/esp_mm/libesp_mm.a
@@ -58,9 +58,6 @@ D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/fatfs/libfatfs.a
 D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/json/libjson.a
 D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/mqtt/libmqtt.a
 D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/nvs_sec_provider/libnvs_sec_provider.a
-D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/perfmon/libperfmon.a
 D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/spiffs/libspiffs.a
-D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/touch_element/libtouch_element.a
-D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/usb/libusb.a
 D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/wifi_provisioning/libwifi_provisioning.a
 D:/ESP32/myProject/ESPNOW1/Espnow_s/build/esp-idf/main/libmain.a

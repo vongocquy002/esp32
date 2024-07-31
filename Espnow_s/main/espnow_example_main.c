@@ -311,7 +311,7 @@ static void example_espnow_task(void *pvParameter)
                     /* NEU MUON TIEP TUC BROADCAST THI TRUE, NEU FALSE THI CHI 1 LAN DUY NHAT */
                     send_param->broadcast = false; //QUAN TRONG
 //////////      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                    if(recv_state ==0){
+                    if(recv_state == 0){
                     if (esp_now_is_peer_exist(recv_cb->mac_addr) == false) {
                         esp_now_peer_info_t *peer = malloc(sizeof(esp_now_peer_info_t));
                         if (peer == NULL) {
@@ -439,7 +439,7 @@ static esp_err_t example_espnow_init(void)
         esp_now_deinit();
         return ESP_FAIL;
     }
-    memcpy(send_param->dest_mac, s_example_broadcast_mac, 6);
+    memcpy(send_param->dest_mac, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
     example_espnow_data_prepare(send_param, "CONNECT REQUEST___");
     //free(send_param->buffer);
     //free(send_param);
