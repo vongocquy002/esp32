@@ -472,7 +472,7 @@ static esp_err_t example_espnow_init(void)
     memcpy(peer->peer_addr, s_example_broadcast_mac, ESP_NOW_ETH_ALEN);
     ESP_ERROR_CHECK( esp_now_add_peer(peer) );
     free(peer);
-    ///
+    /// 
     xTaskCreate(example_espnow_task, "example_espnow_task", 4096, NULL, 4, NULL);
     ///
     heartbeat_timer = xTimerCreate("heartbeat_timer", pdMS_TO_TICKS(HEARTBEAT_INTERVAL), pdTRUE, NULL, check_heartbeat);
