@@ -39,6 +39,12 @@ typedef struct {
     int data_len;
 } example_espnow_event_recv_cb_t;
 
+/*Structure to store MAC address*/
+// Structure to store MAC address
+typedef struct {
+    uint8_t mac_addr[ESP_NOW_ETH_ALEN];
+} mac_addr_t;
+
 typedef union {
     example_espnow_event_send_cb_t send_cb;
     example_espnow_event_recv_cb_t recv_cb;

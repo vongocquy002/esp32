@@ -31,10 +31,18 @@
 #include "espnow_example.h"
 
 #define ESPNOW_MAXDELAY 512
-#define DATA_TO_SEND "Hello from Slave using broadcast"
-static const char *TAG = "espnow_example";
+#define QUEUE_SIZE 10
+
+#define EVENT_FLAG_HEARTBEAT  BIT0
+#define EVENT_FLAG_ABCXYZ     BIT1
+
+
+static const char *TAG = "espnow_slave";
+
 
 static QueueHandle_t s_example_espnow_queue;
+static QueueHandle_t mac_queue;
+static EventGroupHandle_t event_group;
 
 static uint8_t s_example_broadcast_mac[ESP_NOW_ETH_ALEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 static uint16_t s_example_espnow_seq[EXAMPLE_ESPNOW_DATA_MAX] = { 0, 0 };
@@ -85,6 +93,8 @@ static void example_espnow_recv_cb(const esp_now_recv_info_t *recv_info, const u
     example_espnow_event_recv_cb_t *recv_cb = &evt.info.recv_cb;
     uint8_t * mac_addr = recv_info->src_addr;
     uint8_t * des_addr = recv_info->des_addr;
+    /*Save recv MAC --*/
+    //xQueueSend(mac_queue, recv_info->src_addr, portMAX_DELAY);
 
     if (mac_addr == NULL || data == NULL || len <= 0) {
         ESP_LOGE(TAG, "Receive cb arg error");
@@ -97,11 +107,8 @@ static void example_espnow_recv_cb(const esp_now_recv_info_t *recv_info, const u
     // }
 
     if (IS_BROADCAST_ADDR(des_addr)) {
-        /* If added a peer with encryption before, the receive packets may be
-         * encrypted as peer-to-peer message or unencrypted over the broadcast channel.
-         * Users can check the destination address to distinguish it.
-         */
         ESP_LOGD(TAG, "Receive broadcast ESPNOW data");
+        return; //IGNORING BROADCAST//
     } else {
         ESP_LOGD(TAG, "Receive unicast ESPNOW data");
     }
@@ -123,7 +130,18 @@ static void example_espnow_recv_cb(const esp_now_recv_info_t *recv_info, const u
             recv_cb->data = NULL;
         }
     }
+    xQueueSend(mac_queue, mac_addr, portMAX_DELAY);
+    
 }
+/*Check State for Event*/
+// void check_state_and_magic(uint8_t state, uint32_t magic, uint8_t *mac_addr) {
+//     if (state == 9 && magic == 999999) {
+//         xEventGroupSetBits(event_group, EVENT_FLAG_HEARTBEAT);
+//     // } else if (state == 8 && magic == 888888) {
+//     //     //xEventGroupSetBits(event_group, EVENT_FLAG_ADDMAC);
+//     }
+// }
+
 
 /* Parse received ESPNOW data. */
 int example_espnow_data_parse(uint8_t *data, uint16_t data_len, uint8_t *state, uint16_t *seq, uint32_t *magic, uint8_t **payload, uint16_t *payload_len)
@@ -176,6 +194,68 @@ void example_espnow_data_prepare(example_espnow_send_param_t *send_param, const 
    
     ESP_LOGI(TAG, "Prepare to send data to MASTER: %s", buf->payload);
     buf->crc = esp_crc16_le(UINT16_MAX, (uint8_t const *)buf, send_param->len);
+}
+
+static void heartbeat_task(void *pvParameter) {
+    example_espnow_send_param_t *send_param = malloc(sizeof(example_espnow_send_param_t));
+    if (send_param == NULL) {
+        ESP_LOGE(TAG, "Malloc send_param fail");
+        vTaskDelete(NULL);
+    }
+
+    /*Send data struct init*/
+    memset(send_param, 0, sizeof(example_espnow_send_param_t));
+    send_param->unicast = true;
+    send_param->broadcast = false;
+    send_param->state = 9; // Heartbeat state //
+    send_param->magic = 202000; // Secret magic number for heartbeat
+    send_param->len = 250;
+    send_param->buffer = malloc(send_param->len); // Allocate buffer
+    example_espnow_data_prepare(send_param, "p0ng");
+    
+    uint8_t master_mac[ESP_NOW_ETH_ALEN];
+    
+    //while (true) {
+        // Wait for master's MAC address
+        if (xQueueReceive(mac_queue, master_mac, portMAX_DELAY) == pdTRUE) {
+            ESP_LOGE(TAG, "ping !!!!!!");
+            ESP_LOGI(TAG, "Preparing to send heartbeat to " MACSTR, MAC2STR(master_mac));
+            esp_now_peer_info_t peer_info;
+            memset(&peer_info, 0, sizeof(peer_info));
+            memcpy(peer_info.peer_addr, master_mac, ESP_NOW_ETH_ALEN);
+            peer_info.channel = CONFIG_ESPNOW_CHANNEL; // Use the current channel
+            peer_info.encrypt = false;
+            
+            // Add peer if it doesn't exist
+            if (esp_now_is_peer_exist(peer_info.peer_addr) == false) {
+                ESP_ERROR_CHECK(esp_now_add_peer(&peer_info));
+            }
+            
+            esp_err_t result = esp_now_add_peer(&peer_info);
+            if (result == ESP_ERR_ESPNOW_NOT_INIT) {
+                ESP_LOGE(TAG, "ESPNOW not initialized");
+            } else if (result == ESP_ERR_ESPNOW_EXIST) {
+                ESP_LOGI(TAG, "Peer already exists");
+            } else if (result != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to add peer, error code: %d", result);
+            }
+            
+            // Prepare send_param for this peer
+            memcpy(send_param->dest_mac, master_mac, ESP_NOW_ETH_ALEN);
+            ESP_LOGI(TAG, "Ping sent to " MACSTR, MAC2STR(master_mac));
+            
+            if (esp_now_send(send_param->dest_mac, send_param->buffer, send_param->len) != ESP_OK) {
+                ESP_LOGE(TAG, "Send error");
+                example_espnow_deinit(send_param);
+                vTaskDelete(NULL);
+            }
+        }
+
+        //vTaskDelay(pdMS_TO_TICKS(HEARTBEAT_TASK_INTERVAL));
+    //}
+    free(send_param->buffer);
+    free(send_param);
+    vTaskDelete(NULL);
 }
 
 static void example_espnow_task(void *pvParameter)
@@ -311,6 +391,7 @@ static void example_espnow_task(void *pvParameter)
                     /* NEU MUON TIEP TUC BROADCAST THI TRUE, NEU FALSE THI CHI 1 LAN DUY NHAT */
                     send_param->broadcast = false; //QUAN TRONG
 //////////      ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                    if(recv_state == 9 && recv_magic == 999999)  xEventGroupSetBits(event_group, EVENT_FLAG_HEARTBEAT);
                     if(recv_state == 0){
                     if (esp_now_is_peer_exist(recv_cb->mac_addr) == false) {
                         esp_now_peer_info_t *peer = malloc(sizeof(esp_now_peer_info_t));
@@ -339,8 +420,8 @@ static void example_espnow_task(void *pvParameter)
                     memset(send_param, 0, sizeof(example_espnow_send_param_t));
                     send_param->unicast = true;
                     send_param->broadcast = false;
-                    send_param->state = 1;
-                    send_param->magic = recv_magic;
+                    send_param->state = 9;
+                    send_param->magic = 999999;
                     send_param->len = 250;
                     send_param->buffer = malloc(send_param->len);
                     if (send_param->buffer == NULL) {
@@ -445,6 +526,7 @@ static esp_err_t example_espnow_init(void)
     //free(send_param);
     /////////////////////////////////////////////////////////////////////////
     xTaskCreate(example_espnow_task, "example_espnow_task", 4096, send_param, 4, NULL);
+    mac_queue = xQueueCreate(QUEUE_SIZE, sizeof(mac_addr_t));
 
     return ESP_OK;
 }
@@ -459,6 +541,21 @@ static void example_espnow_deinit(example_espnow_send_param_t *send_param)
     esp_now_deinit();
 }
 
+static void event_handler_task(void *pvParameter)
+{
+    while(true) {
+        EventBits_t event_bits = xEventGroupWaitBits(event_group, EVENT_FLAG_HEARTBEAT, pdTRUE, pdFALSE, portMAX_DELAY);
+        
+        if (event_bits & EVENT_FLAG_HEARTBEAT) {
+            // Start the heartbeat task
+            ESP_LOGI(TAG, "Starting heartbeat task");
+            xTaskCreate(heartbeat_task, "heartbeat_task", 4096, NULL, 5, NULL);
+            // Start your heartbeat task here
+        }
+        
+    }
+}
+
 void app_main(void)
 {
     // Initialize NVS
@@ -471,4 +568,6 @@ void app_main(void)
 
     example_wifi_init();
     example_espnow_init();
+    event_group = xEventGroupCreate();
+    xTaskCreate(event_handler_task, "event_handler_task", 4096, NULL, 4, NULL);
 }
