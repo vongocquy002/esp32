@@ -22,7 +22,8 @@
 #endif
 
 #define ESPNOW_QUEUE_SIZE     6
-#define MAX_MAC_ADDRS         10
+#define MAX_MAC_ADDRS         5
+#define NUM_PREDEFINED_MACS   (sizeof(predefined_mac_list) / sizeof(predefined_mac_list[0]))
 //static const char *TAG = "espnow_master";
 
 #define IS_BROADCAST_ADDR(addr) (memcmp(addr, s_example_broadcast_mac, ESP_NOW_ETH_ALEN) == 0)
@@ -43,8 +44,19 @@ typedef struct {
 } example_espnow_event_recv_cb_t;
 
 /// MAC LIST//---------------------------------------**************************************************
+/*Predefined MAC list*/
+static example_espnow_event_send_cb_t predefined_mac_list[MAX_MAC_ADDRS] = {
+    { .mac_addr = {0x24, 0x6F, 0x28, 0x00, 0x00, 0x01} },
+    { .mac_addr = {0x24, 0x6F, 0x28, 0x00, 0x00, 0x02} },
+    { .mac_addr = {0x24, 0x6F, 0x28, 0x00, 0x00, 0x03} },
+    { .mac_addr = {0x24, 0x6F, 0x28, 0x00, 0x00, 0x04} },
+    { .mac_addr = {0x34, 0x85, 0x18, 0x03, 0x95, 0x08} }
+};
+//NUM_PREDEFINED_MACS = (sizeof(predefined_mac_list) / sizeof(predefined_mac_list[0]));
 typedef struct {
     uint8_t mac_addr[ESP_NOW_ETH_ALEN];
+    bool waiting_for_pong;
+    int64_t last_ping_time; // Time when the last ping was sent
 } mac_entry_t;
 typedef struct {
     mac_entry_t known_slaves[MAX_MAC_ADDRS]; // Danh sách các MAC đã biết
@@ -55,14 +67,7 @@ typedef struct {
 // Khởi tạo danh sách MAC quản lý
 mac_management_t mac_list = { .known_slave_count = 0, .unknown_slave_count = 0 };
 
-/*Predefined MAC list*/
-static example_espnow_event_send_cb_t predefined_mac_list[MAX_MAC_ADDRS] = {
-    { .mac_addr = {0x24, 0x6F, 0x28, 0x00, 0x00, 0x01} },
-    { .mac_addr = {0x24, 0x6F, 0x28, 0x00, 0x00, 0x02} },
-    { .mac_addr = {0x24, 0x6F, 0x28, 0x00, 0x00, 0x03} },
-    { .mac_addr = {0x24, 0x6F, 0x28, 0x00, 0x00, 0x04} },
-    { .mac_addr = {0x34, 0x85, 0x18, 0x03, 0x95, 0x08} }
-};
+
 /*Function to initialize the known slave list*/
 void initialize_known_slaves(void) {
     for (int i = 0; i < MAX_MAC_ADDRS; i++) {
@@ -83,7 +88,6 @@ bool add_mac_to_unknown_list(const uint8_t *mac_addr) {
         mac_list.unknown_slave_count++;
         return true;
     }
-
     return false; // Danh sách chưa biết đã đầy
 }
 

@@ -11,7 +11,7 @@
     "idf.openOcdConfigs": [
         "board/esp32s3-builtin.cfg"
     ],
-    "idf.portWin": "COM21",
+    "idf.portWin": "COM17",
     "idf.pythonBinPathWin": "D:\\ESP32\\.espressif\\python_env\\idf5.2_py3.11_env\\Scripts\\python.exe",
     "idf.toolsPathWin": "D:\\ESP32\\.espressif",
     "idf.flashType": "UART",
@@ -20,6 +20,9 @@
         "esp_now.h": "c",
         "future": "c",
         "istream": "c",
-        "ostream": "c"
+        "ostream": "c",
+        "*.tcc": "c",
+        "cstring": "c",
+        "algorithm": "c"
     }
 }
